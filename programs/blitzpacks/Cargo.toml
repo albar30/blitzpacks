@@ -1,0 +1,48 @@
+[package]
+name = "blitzpacks"
+version = "0.1.0"
+description = "BLITZPACKS — Gacha Pack Arena. VRF pack opens + Ephemeral Rollup sessions. Solana Blitz v10."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "blitzpacks"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+default = []
+
+[dependencies]
+# anchor-lang 0.32.x (resolves to 0.32.3). Do NOT let any dep pull anchor-lang
+# 1.x into the tree: ephemeral-rollups-sdk 0.6.x declares anchor-lang
+# ">=0.28.0" with no upper bound, so cargo would hand it 1.2.2 — and its
+# `anchor_lang::solana_program::sysvar::{rent, Sysvar}` imports do not exist
+# in anchor 1.x. The vrf-sdk below uses the `anchor-compat` feature (not
+# `anchor`) precisely so no 1.x anchor-lang enters the resolve.
+anchor-lang = "0.32.1"
+# MagicBlock Ephemeral Rollups SDK (Anchor support) — delegate / commit / #[ephemeral]
+ephemeral-rollups-sdk = { version = "0.6.5", features = ["anchor", "disable-realloc"] }
+# MagicBlock VRF SDK (Anchor support) — request randomness + #[vrf] / #[vrf_callback]
+# Feature MUST be `anchor-compat`, NOT `anchor`: the `anchor` feature enables
+# `anchor-modern` -> anchor-lang 1.x, which breaks ephemeral-rollups-sdk 0.6.x
+# (it resolves anchor-lang to 1.2.2 and its sysvar imports fail there).
+# `anchor-compat` keeps everything on anchor-lang 0.32.x. 0.4.1 is the only
+# non-yanked 0.4.x (0.3.0/0.3.1/0.4.0 are all yanked).
+ephemeral-vrf-sdk = { version = "0.4.1", features = ["anchor-compat"] }
+# NOTE: solana-program intentionally NOT a direct dependency — lib.rs uses
+# only anchor_lang (+ MagicBlock SDKs). Anchor re-exports solana_program
+# via anchor_lang::solana_program if ever needed. (3.1.0 was never published;
+# only 3.0.0 exists in the 3.x line, so pinning 3.1.0 broke resolution.)
+
+[profile.release]
+overflow-checks = true
+
+# Vendored ephemeral-rollups-sdk 0.6.6 (see vendor/ephemeral-rollups-sdk/VENDORED.md):
+# upstream's unbounded `anchor-lang = ">=0.28.0"` resolves to anchor-lang 1.2.2,
+# whose sysvar module lacks the `rent`/`Sysvar` imports the SDK uses.
+[patch.crates-io]
+ephemeral-rollups-sdk = { path = "vendor/ephemeral-rollups-sdk" }
